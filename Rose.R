@@ -12,6 +12,8 @@ person="Tara"
 
 gsub("."," Peter.",greeting,fixed = T)
 
-person="Tara"
+person="Helen"
 message=" This is my test script."
+
+
 paste0("Hello ", person,".", message)
