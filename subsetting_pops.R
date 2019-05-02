@@ -9,12 +9,13 @@ full.data.frame <-read.table("./rawdata/JordanEmicroSNP_012.tsv", header =FALSE)
 #1 pop dataframe (Labeled "Population" and "Sample")
 #2 snp dataframe (sample labeled "V1")
 #3 pop.size <- 10
-#4 numb <- "testing"  # for labeling of the final file
+#4 numb <- "testing"  # for labeling of the final file (probably species)
 #5 maf.x <- 0.01
 #6 prop <- 0.9 (proportion of intact data; i.e. 10% missing data)
 
 
-choose.pop(n.df, full.data.frame, 15, "testing", 0.1, 0.6) #second is the label of the written file
+choose.pop(n.df, full.data.frame, 15, "testing", 0.1, 0.6) 
+#second is the label of the written file
 
 #####################################################
 #   function
