@@ -18,6 +18,7 @@ minor.allele <- c(0.1, 0.05, 0.01)
 prop.md <- c(0.5, 0.6, 0.7, 0.8, 0.9)
 ind.pop <- c(25, 20, 15, 10, 6)
 
+
 for (i in minor.allele) {
   for(j in prop.md) {
     for(k in ind.pop) {
