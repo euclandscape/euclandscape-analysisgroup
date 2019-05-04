@@ -1,12 +1,12 @@
 ---
 title: "RDA Analysis"
 output: html_document
-editor_options: 
+editor_options:
   chunk_output_type: inline
 params:
-  in.geno: "data/1ksnp.tsv.gz"
-  in.lonlat: "data/JordanEmicroLongLat.csv"
-  in.env: "data/JordanEmicroENV.csv"
+  in.geno: "../rawdata/TESTING_1ksnps.tsv.gz"
+  in.lonlat: "../rawdata/JordanEmicroLongLat.csv"
+  in.env: "../rawdata/JordanEmicroENV.csv"
   n.permutations: 99
   out.dir: "TMP"
   n.cpus: 4
