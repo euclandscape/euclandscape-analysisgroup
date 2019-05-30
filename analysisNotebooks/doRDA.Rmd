@@ -1,0 +1,169 @@
+---
+title: "RDA Analysis"
+output: html_document
+editor_options:
+  chunk_output_type: inline
+params:
+  in.geno: "../rawdata/TESTING_1ksnps.tsv.gz"
+  in.lonlat: "../rawdata/JordanEmicroLongLat.csv"
+  in.env: "../rawdata/JordanEmicroENV.csv"
+  n.permutations: 99
+  out.dir: "TMP"
+  n.cpus: 4
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vegan)
+library(tidyverse)
+if (!dir.exists(params$out.dir)) dir.create(params$out.dir)
+```
+
+This notebook was run with the following parameters
+
+```{r}
+params
+```
+
+
+## Setup working data and directory
+
+```{r}
+gen = read.delim(params$in.geno, header = F, row.names=1)
+dim(gen)
+lonlat = readr::read_csv(params$in.lonlat)
+env = readr::read_csv(params$in.env)
+summary(env)
+```
+
+
+## Data input/formatting and sanity checking
+
+```{r}
+# TODO: check that row names match, use match to ensure this 
+# Check that genotype and EV data are in the same order
+#identical(rownames(gen.imp),env[,2])  #TRUE
+# If FALSE, sort EV data to match gen.imp Sample order
+#env <- env[match(rownames(gen.imp),env[,2]),]
+```
+
+
+Now make an allele frequency matrix.
+
+```{r}
+af = apply(gen, 2, function(snp) {
+    split(snp, lonlat$Population) %>%
+        sapply(function(genos) {
+            n = sum(!is.na(genos)) * 2
+            s = sum(genos, na.rm=T)
+            return (s / n)
+    })
+})
+dim(af)
+```
+
+RDA requires complete dataframes (no NAs).  Check for NAs
+```{r}
+n.na = sum(is.na(af))
+if (n.na > 0) warning("RDA requires no missing data")
+```
+
+```{r}
+hist(af)
+```
+
+Now, let's just look at the genetic pca to check our allele freq matrix looks OK.
+
+```{r}
+pc = prcomp(af, retx = T)
+pc$x %>%
+  as.data.frame() %>%
+  rownames_to_column("ID") %>%
+  ggplot(aes(PC1, PC2)) +
+  geom_text(aes(label=ID)) +
+  theme_bw()
+```
+
+
+### Extract environemntal matrix by sample
+
+So the env matrix should already be scaled
+
+```{r}
+env.pop = env %>%
+  select(-Sample) %>%
+  unique() %>%
+  column_to_rownames("Population")  %>%
+  scale(center=T, scale=T) %>%
+  as.data.frame()
+# does scale(column_to_rownames(unique(select(env)))) with args.
+# Use pipes or you make kevin sad
+```
+
+
+## RDA proper
+
+```{r}
+# Run RDA (If you want to analyze factors, have to write out full equation
+# - see Forester - otherwise can just use ~ . shorthand)
+# Constrained axes will equal # vars in model
+# Proportion Constrained = proportion of variance explained by EV predictors
+# Most SNPs will be neutral, so low var explained is expected
+# RDA - Borcard et al. (2011)
+euc.rda = rda(af ~ ., data=env.pop[,-1], scale=T)
+
+# Calculate adjusted R2 (R2 should be adjusted based on # of predictors)
+RsquareAdj(euc.rda)
+
+# Summarize variance explained by each canonical axis (eigenvalues)
+summary(eigenvals(euc.rda, model="constrained"))
+screeplot(euc.rda)
+```
+
+
+
+Assess model significance
+
+```{r}
+# Assess significance of full model w/ CCA F-statistics (Legendre, Oksanen, & terBraak 2010)
+signif.full = anova.cca(euc.rda, parallel=params$n.cpus,
+                        permutations=params$n.permutations)
+signif.full
+```
+
+And now we test the significance of each axis
+```{r}
+# Assess significance of individual canonical RDA axes to determine which axes to use for investigating candidate loci
+signif.axis <- anova.cca(euc.rda, by="axis", parallel=params$n.cpus,
+                         permutations = params$n.permutations)
+signif.axis
+```
+
+Check Variance Inflation Factors (VIFs) among co-variates. We want VIF<10 or more conservatively <5 (Zuur et al. 2010).
+
+```{r}
+vif.cca(euc.rda)
+```
+
+
+```{r}
+# Plot RDA
+# SNPs are red, individuals are black circles, EV vectors are blue
+plot(euc.rda, scaling=3)  #'scaling=3' is "symmetrical scaling" and scales SNP and indiv. scores by sqrt of eigenvalues
+plot(euc.rda, choices = c(1,3), scaling=3)  #Axes 1 & 3
+plot(euc.rda, choices = c(2,3), scaling=3)
+```
+
+```{r}
+# Identify extreme outlier samples
+snp_loadings =  scores(euc.rda)$species
+write.csv(snp_loadings, file.path(params$out.dir, "snp_loadings.csv"))
+sample_loadings =  scores(euc.rda)$sites
+write.csv(sample_loadings, file.path(params$out.dir, "sample_loadings.csv"))
+```
+
+```{r}
+save(list = ls(), file=file.path(params$out.dir, "data.Rdat"))
+```
