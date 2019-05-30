@@ -100,5 +100,5 @@ ess=function(n,rho){
   n_ess
 }
 
-ess(25,envI$MoransI)
+ess(26,envI$MoransI)
 
