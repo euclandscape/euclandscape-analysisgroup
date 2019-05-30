@@ -19,7 +19,7 @@ envsamp=read_csv(envfile)
 envnames_all=names(envsamp[-c(1:2)])
 env=envsamp %>% 
   group_by(Population) %>% 
-  summarise_at(.funs=funs(mean),.vars=vars(envnames_all))
+  summarise_at(.funs=list(mean),.vars=vars(envnames_all))
 env[,envnames_all]=scale(env[envnames_all])
 
 #########################################################################
@@ -100,5 +100,5 @@ ess=function(n,rho){
   n_ess
 }
 
-ess(25,envI$MoransI)
+ess(26,envI$MoransI)
 
