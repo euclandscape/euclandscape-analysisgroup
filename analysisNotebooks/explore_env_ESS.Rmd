@@ -1,5 +1,5 @@
 ---
-title: "Explore Environmental Variables"
+title: "Exploring effective sample size environmental variables"
 author: "Rose Andrew"
 date: "15 June 2019"
 output:
@@ -10,7 +10,7 @@ params:
   envfile: "../rawdata/JordanEmicroMetadataBySample.csv"
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 library(SpatialPack)
@@ -46,7 +46,7 @@ Dutilleul, P., Clifford, P., Richardson, S., & Hemon, D. (1993). Modifying the t
 
 For Bec Jordan's 26 sampling locations, the ESS for pairwise associations between environmental variables range from 4 to 26.
 
-```{r pairwise}
+```{r pairwise, echo=FALSE}
 ## Define response and predictor
 envnames=envnames_all[which(!envnames_all %in% c("Lat","Lon"))]
 
