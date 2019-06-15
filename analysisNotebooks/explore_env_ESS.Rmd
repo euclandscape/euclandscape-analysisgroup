@@ -21,73 +21,62 @@ library(spdep)
 library(leaflet)
 library(gplots)
 
-# setwd("~/STUDENTS and COLLABORATIONS/Eucalyptus GEA workshop/euclandscape-analysisgroup")
-
-# datadir="rawdata"
-# envfilename="JordanEmicroMetadataBySample.csv"
-# envfile=file.path(datadir,envfilename)
-
 ## read data
-envsamp=read_csv(params$envfile)
-envnames_all=names(envsamp[-c(1:2)])
-env=envsamp %>% 
-  group_by(Population) %>% 
-  summarise_at(.funs=list(mean),.vars=vars(envnames_all))
-# env[,envnames_all]=scale(env[envnames_all])
-
+envsamp = read_csv(params$envfile)
+envnames_all = names(envsamp[-c(1:2)])
+env = envsamp %>%
+  group_by(Population) %>%
+  summarise_at(.funs = list(mean), .vars = vars(envnames_all))
 
 ```
 
 When testing association between variables, its significance can be inflated if the samples are non-independent. Spatial dependence in the form of spatial autocorrelation is very common in environmental variables. Some variables are more spatially autocorrelated than others, and as this will affect the rates of false positive associations, it has some bearing on the variables we choose for further analysis, at the very least. It may also be interesting to look at which variables pop out in analyses, in case some programs do a better job of accounting for it than others.
 
-For bivariate analyses, this has already been implemented in the 'modified.ttest' functions in the 'SpatialPack' package (Dutilleul et al. 1993). 
+For bivariate analyses, this has already been implemented in the 'modified.ttest' functions in the 'SpatialPack' package (Dutilleul et al. 1993). There's also a modified F-test for use with multiple predictors, but it gives identical ESS for bivariate associations (as we would hope).
 
 Dutilleul, P., Clifford, P., Richardson, S., & Hemon, D. (1993). Modifying the t test for assessing the correlation between two spatial processes. Biometrics, 49(1), 305-314. doi:10.2307/2532625
 
 For Bec Jordan's 26 sampling locations, the ESS for pairwise associations between environmental variables range from 4 to 26.
 
-```{r pairwise, echo=FALSE}
-## Define response and predictor
-envnames=envnames_all[which(!envnames_all %in% c("Lat","Lon"))]
+```{r pairwise, echo=TRUE}
+## which columns to include in pairwise comparisons
+envnames = envnames_all[which(!envnames_all %in% c("Lat", "Lon"))]
 
 # extracting the coordinates from the radiata data set
-coords <- as.data.frame(env[c("Lon","Lat")])
+coords <- as.data.frame(env[c("Lon", "Lat")])
 
 ## set up output data frame
-mymatrix=matrix(nrow=length(envnames),ncol=length(envnames)) 
-rownames(mymatrix)=envnames
-colnames(mymatrix)=envnames
-mymatrix2=mymatrix
+mymatrix = matrix(nrow = length(envnames), ncol = length(envnames))
+rownames(mymatrix) = envnames
+colnames(mymatrix) = envnames
+mymatrix2 = mymatrix
 
-for(i in 1:length(envnames)){
+for (i in 1:length(envnames)) {
   # i=2
-  xname=envnames[i]
-  x=t(t(env[,xname]))
-  for(j in c(1:length(envnames))[which(!envnames==xname)]){
-    yname=envnames[j]
-    y=unlist(env[yname])
+  xname = envnames[i]
+  x = t(t(env[, xname]))
+  for (j in c(1:length(envnames))[which(!envnames == xname)]) {
+    yname = envnames[j]
+    y = unlist(env[yname])
     
     # computing the modified F-test of spatial association
     z <- modified.Ftest(x, y, coords)
-    mymatrix[i,j]=z$ESS
+    mymatrix[i, j] = z$ESS
     
     # computing the modified t-test of spatial association
     z <- modified.ttest(x, y, coords)
-    mymatrix2[i,j]=z$ESS
+    mymatrix2[i, j] = z$ESS
     
   }
 }
 # mymatrix
 # mymatrix2
-
-# heatmap(mymatrix,Rowv=NA,Colv=NA,scale="none")
-
-heatmap.2(mymatrix2,dendrogram = "none",scale="none",trace="none", density="none",
-          Rowv=F,Colv=F,col=rev(heat.colors(nrow(env)*nrow(env))))
-
 ## ESS is the same for the F-test with two variables as for the t-test of a correlation
 
-
+## Show in heatmap with legend
+heatmap.2(mymatrix2, dendrogram = "none", scale = "none", trace = "none",
+          density = "none", Rowv = F, Colv = F, 
+          col = rev(heat.colors(nrow(env) * nrow(env))))
 
 ```
 
@@ -100,9 +89,9 @@ Griffith, D. A. (2005). Effective geographic sample size in the presence of spat
 Unfortunately, it hasn't been implemented in an R package yet, so I've had a try myself. There are several ways to summarise global spatial autocorrelation, so I tried two: Moran's I and APLE. For Moran's I, inverse weighting of spatial distance was used, and gave fairly sensible results. APLE didn't make much sense, so I used Moran's I in the ESS formula.
 
 
+```{r univariate, echo=TRUE}
 
 
-```{r univariate, echo=FALSE}
 
 
 #########################################################################
@@ -110,27 +99,30 @@ Unfortunately, it hasn't been implemented in an R package yet, so I've had a try
 #########################################################################
 
 ## Set up frame to hold output
-envI=data.frame(env=envnames,MoransI=NA,pval=NA,APLE=NA)
+envI = data.frame(env = envnames, MoransI = NA, pval = NA, APLE = NA)
 
 ## weights for ape
-w=as.matrix(1/dist(coords,upper = T))
-## weights for spdep
-listw0=mat2listw(as.matrix(1/dist(coords)))
-listw1=nb2listw(listw0$neighbours,listw0$weights,"W")
+w = as.matrix(1 / dist(coords, upper = T))
 
-for(i in 1:length(envnames)){
-  varname=envnames[i]
-  x=unlist(env[,varname])
-  x=c(scale(unlist(env[,varname])))
+## weights for spdep
+listw0 = mat2listw(as.matrix(1 / dist(coords)))
+listw1 = nb2listw(listw0$neighbours, listw0$weights, "W")
+
+for (i in 1:length(envnames)) {
+  varname = envnames[i]
+  x = unlist(env[, varname])
+  x = c(scale(unlist(env[, varname])))
   
-  y=Moran.I(x,w)
-  envI$MoransI[i]=y$observed
-  envI$pval[i]=y$p.value
-  envI$APLE[i]=aple(x,listw1)
-  
+  y = Moran.I(x, w)
+  envI$MoransI[i] = y$observed
+  envI$pval[i] = y$p.value
+  envI$APLE[i] = aple(x, listw1)
 }
 
+```
 
+Here's the ESS calculation followed by the resulting table.
+```{r ess_calc, echo=TRUE}
 #########################################################################
 ## Effective sample size for the mean (Griffith 2005)
 #########################################################################
@@ -138,15 +130,15 @@ for(i in 1:length(envnames)){
 ## n is the sample size
 ## rho is the spatial autocorrelation coefficient for a SAR model specification
 ##    - using Moran's I, as APLE gives negative values
-ess=function(n,rho){
-  n_ess=n*(1-(1/(1-exp(-1.92369))*((n-1)/n)*(1-exp(-2.12373*rho+0.20024*sqrt(rho)))))
+ess = function(n, rho) {
+  n_ess = n * (1 - (1 / (1 - exp(-1.92369)) * ((n - 1) / n) * (1 - exp(
+  -2.12373 * rho + 0.20024 * sqrt(rho)
+  ))))
   n_ess
 }
 
 ## ESS for the mean for each variable, accounting for autocorrelation
-# ess(26,envI$MoransI)
-
-envI$ESS=ess(26,envI$MoransI)
+envI$ESS = ess(26, envI$MoransI)
 
 envI
 
