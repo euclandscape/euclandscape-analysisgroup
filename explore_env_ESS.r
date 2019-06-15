@@ -7,6 +7,7 @@ library(dplyr)
 library(readr)
 library(ape)
 library(spdep)
+library(leaflet)
 
 setwd("~/STUDENTS and COLLABORATIONS/Eucalyptus GEA workshop/euclandscape-analysisgroup")
 
@@ -100,5 +101,24 @@ ess=function(n,rho){
   n_ess
 }
 
+## ESS for the mean for each variable, accounting for autocorrelation
 ess(26,envI$MoransI)
 
+#########################################################################
+## Maps of environmental variables
+#########################################################################
+## Example plots
+
+## BIO18 has the strongest spatial autocorrelation
+leaflet(env) %>% addTiles() %>% 
+  addCircleMarkers(~Lon, ~Lat, 
+                   radius = c(10*scale(env$BIO18,center = 1,scale = T)),
+                   weight = 1,
+                   opacity = 0.8)
+
+## BIOL19 has weakest spatial autocorrelation
+leaflet(env) %>% addTiles() %>% 
+  addCircleMarkers(~Lon, ~Lat, 
+                   radius = c(10*scale(env$BIO19,center = 1,scale = T)),
+                   weight = 1,
+                   opacity = 0.8)
