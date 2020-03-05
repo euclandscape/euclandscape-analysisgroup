@@ -1,0 +1,332 @@
+---
+title: "Exploring effective sample size environmental variables"
+author: "Rose Andrew"
+date: "5 March 2020"
+output:
+  html_document: default
+  # flexdashboard::flex_dashboard
+editor_options:
+  chunk_output_type: inline
+params:
+  envfile: "../rawdata/JordanEmicroMetadataBySample.csv"
+  envfile2: "../rawdata/MarriMetadataBySample.csv"
+---
+
+
+```{r setup, include=FALSE, echo=FALSE}
+library(knitr)
+library(SpatialPack)
+library(dplyr)
+library(readr)
+library(ape)
+library(spdep)
+library(leaflet)
+library(gplots)
+
+knitr::opts_chunk$set(echo = FALSE)
+## read data
+envsamp = read_csv(params$envfile)
+envnames_all = names(envsamp[-c(1:2)])
+env = envsamp %>%
+  group_by(Population) %>%
+  summarise_at(.funs = list(mean), .vars = vars(envnames_all))
+
+## read data
+envsamp2 = read_csv(params$envfile2)
+envnames_all2 = names(envsamp2[-c(1:2)])
+env2 = envsamp2 %>%
+  group_by(Population) %>%
+  summarise_at(.funs = list(mean), .vars = vars(envnames_all2))
+
+```
+
+# Correlations
+## E. microcarpa
+### Correlations in E. microcarpa
+
+```{r pairwise, echo=FALSE}
+## which columns to include in pairwise comparisons
+envnames = envnames_all[which(!envnames_all %in% c("Lat", "Lon"))]
+envnames2 = envnames_all2[which(!envnames_all2 %in% c("Lat", "Lon"))]
+
+# extracting the coordinates from the radiata data set
+coords <- as.data.frame(env[c("Lon", "Lat")])
+coords2 <- as.data.frame(env2[c("Lon", "Lat")])
+
+heatmap.2(cor(env[,envnames]), dendrogram = "none", scale = "none", trace = "none",
+          density = "none", Rowv = F, Colv = F, 
+          col = rev(heat.colors(nrow(env) * nrow(env))))
+
+```
+
+### ESS for correlations
+
+```{r,echo=FALSE}
+## set up output data frame
+mymatrix = matrix(nrow = length(envnames), ncol = length(envnames))
+rownames(mymatrix) = envnames
+colnames(mymatrix) = envnames
+mymatrix2 = mymatrix
+
+for (i in 1:length(envnames)) {
+  # i=2
+  xname = envnames[i]
+  x = t(t(env[, xname]))
+  for (j in c(1:length(envnames))[which(!envnames == xname)]) {
+    yname = envnames[j]
+    y = unlist(env[yname])
+    
+    # computing the modified F-test of spatial association
+    z <- modified.Ftest(x, y, coords)
+    mymatrix[i, j] = z$ESS
+    
+    # computing the modified t-test of spatial association
+    z <- modified.ttest(x, y, coords)
+    mymatrix2[i, j] = z$ESS
+    
+  }
+}
+
+
+
+
+# mymatrix
+# mymatrix2
+## ESS is the same for the F-test with two variables as for the t-test of a correlation
+
+
+## Show in heatmap with legend
+heatmap.2(mymatrix2, dendrogram = "none", scale = "none", trace = "none",
+          density = "none", Rowv = F, Colv = F, 
+          col = rev(heat.colors(nrow(env) * nrow(env))))
+
+```
+
+
+## C. calophylla
+### Correlations in C. calophylla
+```{r , echo=FALSE}
+
+heatmap.2(cor(env2[,envnames]), dendrogram = "none", scale = "none", trace = "none",
+          density = "none", Rowv = F, Colv = F, 
+          col = rev(heat.colors(nrow(env) * nrow(env))))
+
+```
+
+### ESS for correlations
+
+```{r, echo=FALSE}
+## set up output data frame
+mymatrix = matrix(nrow = length(envnames2), ncol = length(envnames2))
+rownames(mymatrix) = envnames2
+colnames(mymatrix) = envnames2
+mymatrix2 = mymatrix
+
+for (i in 1:length(envnames2)) {
+  # i=2
+  xname = envnames2[i]
+  x = t(t(env2[, xname]))
+  for (j in c(1:length(envnames2))[which(!envnames2 == xname)]) {
+    yname = envnames2[j]
+    y = unlist(env2[yname])
+    
+    # computing the modified F-test of spatial association
+    z <- modified.Ftest(x, y, coords2)
+    mymatrix[i, j] = z$ESS
+    
+    # computing the modified t-test of spatial association
+    z <- modified.ttest(x, y, coords2)
+    mymatrix2[i, j] = z$ESS
+    
+  }
+}
+# mymatrix
+# mymatrix2
+## ESS is the same for the F-test with two variables as for the t-test of a correlation
+
+## Show in heatmap with legend
+heatmap.2(mymatrix2, dendrogram = "none", scale = "none", trace = "none",
+          density = "none", Rowv = F, Colv = F, 
+          col = rev(heat.colors(nrow(env) * nrow(env))))
+
+```
+
+
+# Autocorrelation and effective sample size summary
+
+
+
+```{r univariate, echo=FALSE, warning=FALSE}
+
+
+
+
+#########################################################################
+## Autocorrelation - Moran's I in ape and APLE in spdep
+#########################################################################
+
+## Set up frame to hold output
+envI = data.frame(env = envnames, MoransI = NA, pval = NA, APLE = NA)
+
+## weights for ape
+w = as.matrix(1 / dist(coords, upper = T))
+
+## weights for spdep
+listw0 = mat2listw(as.matrix(1 / dist(coords)))
+listw1 = nb2listw(listw0$neighbours, listw0$weights, "W")
+
+for (i in 1:length(envnames)) {
+  varname = envnames[i]
+  x = unlist(env[, varname])
+  x = c(scale(unlist(env[, varname])))
+  
+  y = Moran.I(x, w)
+  envI$MoransI[i] = y$observed
+  envI$pval[i] = y$p.value
+  envI$APLE[i] = aple(x, listw1)
+}
+
+## C. calophylla
+envI2 = data.frame(env2 = envnames, MoransI = NA, pval = NA, APLE = NA)
+
+## weights for ape
+w = as.matrix(1 / dist(coords2, upper = T))
+
+## weights for spdep
+listw0 = mat2listw(as.matrix(1 / dist(coords2)))
+listw1 = nb2listw(listw0$neighbours, listw0$weights, "W")
+
+for (i in 1:length(envnames)) {
+  varname = envnames2[i]
+  x = unlist(env2[, varname])
+  x = c(scale(unlist(env2[, varname])))
+  
+  y = Moran.I(x, w)
+  envI2$MoransI[i] = y$observed
+  envI2$pval[i] = y$p.value
+  envI2$APLE[i] = aple(x, listw1)
+}
+
+```
+
+## E. microcarpa
+### E. microcarpa
+
+```{r ess_calc, echo=FALSE}
+#########################################################################
+## Effective sample size for the mean (Griffith 2005)
+#########################################################################
+
+## n is the sample size
+## rho is the spatial autocorrelation coefficient for a SAR model specification
+##    - using Moran's I, as APLE gives negative values
+ess = function(n, rho) {
+  n_ess = n * (1 - (1 / (1 - exp(-1.92369)) * ((n - 1) / n) * (1 - exp(
+  -2.12373 * rho + 0.20024 * sqrt(rho)
+  ))))
+  n_ess
+}
+
+## ESS for the mean for each variable, accounting for autocorrelation
+envI$ESS = ess(26, envI$MoransI)
+
+envI
+```
+
+## C. calophylla
+### C. calophylla
+
+
+```{r , echo=FALSE}
+## ESS for C. calophylla
+envI2$ESS = ess(27, envI2$MoransI)
+
+envI2
+
+```
+
+## Comparison
+### Moran's I: C. calophylla (y axis) vs. E. microcarpa (x axis)
+```{r , echo=FALSE}
+
+plot(envI$MoransI,envI2$MoransI)
+text(envI$MoransI,envI2$MoransI,adj=1.5)
+abline(0,1)
+
+```
+
+### Comments
+
+BIO5 and BIO14 show similar spatial autocorrelation and, like most variables, are similar between the two species. It would be ideal to include more variation in spatial patterns, e.g. variables with little spatial autocorrelation, such as BIO13, and variables with different degrees of spatial autocorrelation in the two species, such as BIO8. 
+
+
+# Maps of focal variables
+## E. microcarpa
+### BIO5
+```{r, echo=FALSE}
+
+#########################################################################
+## Maps of environmental variables
+#########################################################################
+## Example plots
+
+## BIO18 has the strongest spatial autocorrelation
+leaflet(env) %>% addTiles() %>% 
+  addCircleMarkers(~Lon, ~Lat, 
+                   radius = c(10*scale(env$BIO5,center = 1,scale = T)),
+                   weight = 1,
+                   opacity = 0.8)
+```
+
+### BIO14
+
+```{r, echo=FALSE}
+
+#########################################################################
+## Maps of environmental variables
+#########################################################################
+## Example plots
+
+## BIO18 has the strongest spatial autocorrelation
+leaflet(env) %>% addTiles() %>% 
+  addCircleMarkers(~Lon, ~Lat, 
+                   radius = c(10*scale(env$BIO14,center = 1,scale = T)),
+                   weight = 1,
+                   opacity = 0.8)
+```
+
+## C. calophylla
+
+### BIO5
+
+
+```{r, echo=FALSE}
+
+#########################################################################
+## Maps of environmental variables
+#########################################################################
+## Example plots
+
+## BIO18 has the strongest spatial autocorrelation
+leaflet(env2) %>% addTiles() %>% 
+  addCircleMarkers(~Lon, ~Lat, 
+                   radius = c(10*scale(env$BIO5,center = 1,scale = T)),
+                   weight = 1,
+                   opacity = 0.8)
+```
+
+### BIO14
+```{r, echo=FALSE}
+
+#########################################################################
+## Maps of environmental variables
+#########################################################################
+## Example plots
+
+## BIO18 has the strongest spatial autocorrelation
+leaflet(env2) %>% addTiles() %>% 
+  addCircleMarkers(~Lon, ~Lat, 
+                   radius = c(10*scale(env$BIO14,center = 1,scale = T)),
+                   weight = 1,
+                   opacity = 0.8)
+```
