@@ -3,13 +3,15 @@ title: "Exploring effective sample size environmental variables"
 author: "Rose Andrew"
 date: "5 March 2020"
 output:
-  html_document: default
-  # flexdashboard::flex_dashboard
+  html_document:
+    df_print: paged
+  flexdashboard::flex_dashboard: default
+  pdf_document: default
+params:
+  envfile: ../rawdata/JordanEmicroMetadataBySample.csv
+  envfile2: ../rawdata/MarriMetadataBySample.csv
 editor_options:
   chunk_output_type: inline
-params:
-  envfile: "../rawdata/JordanEmicroMetadataBySample.csv"
-  envfile2: "../rawdata/MarriMetadataBySample.csv"
 ---
 
 
@@ -22,6 +24,7 @@ library(ape)
 library(spdep)
 library(leaflet)
 library(gplots)
+library(RColorBrewer)
 
 knitr::opts_chunk$set(echo = FALSE)
 ## read data
@@ -53,9 +56,17 @@ envnames2 = envnames_all2[which(!envnames_all2 %in% c("Lat", "Lon"))]
 coords <- as.data.frame(env[c("Lon", "Lat")])
 coords2 <- as.data.frame(env2[c("Lon", "Lat")])
 
-heatmap.2(cor(env[,envnames]), dendrogram = "none", scale = "none", trace = "none",
+cormat <- cor(env[,envnames])
+# cormat 
+
+corpal <- rev(brewer.pal(n = 11, name = 'RdBu'))
+
+heatmap.2(cormat, dendrogram = "none", scale = "none", trace = "none",
           density = "none", Rowv = F, Colv = F, 
-          col = rev(heat.colors(nrow(env) * nrow(env))))
+          col = corpal)
+# heatmap.2(cormat, dendrogram = "none", scale = "none", trace = "none",
+#           density = "none", Rowv = F, Colv = F, 
+#           col = rev(heat.colors(nrow(env) * nrow(env))))
 
 ```
 
@@ -94,11 +105,15 @@ for (i in 1:length(envnames)) {
 # mymatrix2
 ## ESS is the same for the F-test with two variables as for the t-test of a correlation
 
-
+esspal <- brewer.pal(n=9,name="Greens")
 ## Show in heatmap with legend
 heatmap.2(mymatrix2, dendrogram = "none", scale = "none", trace = "none",
           density = "none", Rowv = F, Colv = F, 
-          col = rev(heat.colors(nrow(env) * nrow(env))))
+          col = esspal)
+
+# heatmap.2(mymatrix2, dendrogram = "none", scale = "none", trace = "none",
+#           density = "none", Rowv = F, Colv = F, 
+#           col = rev(heat.colors(nrow(env) * nrow(env))))
 
 ```
 
@@ -109,7 +124,7 @@ heatmap.2(mymatrix2, dendrogram = "none", scale = "none", trace = "none",
 
 heatmap.2(cor(env2[,envnames]), dendrogram = "none", scale = "none", trace = "none",
           density = "none", Rowv = F, Colv = F, 
-          col = rev(heat.colors(nrow(env) * nrow(env))))
+          col = corpal)
 
 ```
 
@@ -147,7 +162,7 @@ for (i in 1:length(envnames2)) {
 ## Show in heatmap with legend
 heatmap.2(mymatrix2, dendrogram = "none", scale = "none", trace = "none",
           density = "none", Rowv = F, Colv = F, 
-          col = rev(heat.colors(nrow(env) * nrow(env))))
+          col = esspal)
 
 ```
 
@@ -246,7 +261,7 @@ envI2
 ```
 
 ## Comparison
-### Moran's I: C. calophylla (y axis) vs. E. microcarpa (x axis)
+### Moran's I: C. calophylla (y axis) vs. E. microcarpa (x axis) with 1:1 line
 ```{r , echo=FALSE}
 
 plot(envI$MoransI,envI2$MoransI)
@@ -330,3 +345,17 @@ leaflet(env2) %>% addTiles() %>%
                    weight = 1,
                    opacity = 0.8)
 ```
+
+
+### Combined table
+```{r}
+sumtable <- data.frame(Variable=envI$env,MoransI_Emic=envI$MoransI,ESS_Emic=envI$ESS,MoransI_Ccal=envI2$MoransI,ESS_Ccal=envI2$ESS)
+
+sumtable
+
+write.csv(sumtable,"ESS_summary_table.csv",quote=F,row.names = F)
+
+
+
+```
+
