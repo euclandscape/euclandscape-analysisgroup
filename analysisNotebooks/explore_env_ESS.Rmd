@@ -11,8 +11,7 @@ params:
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
+library(knitr)
 library(SpatialPack)
 library(dplyr)
 library(readr)
@@ -20,6 +19,8 @@ library(ape)
 library(spdep)
 library(leaflet)
 library(gplots)
+
+knitr::opts_chunk$set(echo = TRUE)
 
 ## read data
 envsamp = read_csv(params$envfile)
